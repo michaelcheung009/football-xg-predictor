@@ -1,61 +1,64 @@
+import streamlit as st
 import numpy as np
 import scipy.stats as stats
-import streamlit as st
 
 # ==========================================
-# 🎨 網頁前端介面設定 (針對手機與多端極致優化)
+# 🎨 手機端極簡單頁排版設定
 # ==========================================
-st.set_page_config(page_title="職業足球 xG 預測系統", layout="centered")
+st.set_page_config(page_title="足球 xG 預測系統", layout="centered")
 
 st.title("⚽ 足球 xG 狀態×地利融合預測系統")
-st.markdown("💡 *提示：請切換下方分頁填入數據，最後在【💰 莊家賠率】分頁點擊計算。*")
+st.markdown("💡 *提示：模型已融合：近5場真實進球、近5場xG走勢、賽季主客場地利以及對手防守實力。*")
 
-# 核心優化：在手機端改用分頁標籤（Tabs），防止畫面擠壓變形
-tab_home, tab_away, tab_odds = st.tabs(["🏠 主隊數據", "🚌 客隊數據", "💰 莊家賠率"])
+# 1. 聯賽背景基準設定
+st.subheader("🌐 聯賽與加權基礎設定")
+c1, c2 = st.columns(2)
+with c1:
+    league_goals = st.number_input("聯賽場均總進球數 (AVG)", min_value=1.5, max_value=4.5, value=3.24, step=0.01, key="unique_lg_g")
+with c2:
+    weight_xg = st.slider("短期 xG 權重占比 (推薦 0.6)", min_value=0.0, max_value=1.0, value=0.6, step=0.1, key="unique_w_xg")
 
-with tab_home:
-    st.header("🏠 主隊數據設定")
-    league_goals = st.number_input(
-        "🌐 聯賽場均總進球數 (AVG)", min_value=1.5, max_value=4.5, value=3.24, step=0.01, key="lg_g"
-    )
-    weight_xg = st.slider("📈 短期 xG 權重占比 (推薦 0.6)", min_value=0.0, max_value=1.0, value=0.6, step=0.1, key="w_xg")
-    
-    st.markdown("---")
-    h_sc_str = st.text_input("📋 近 5 場單場【真實進球】(用逗號隔開)", "1, 4, 3, 2, 1", key="h_sc")
-    h_xg_str = st.text_input("📋 近 5 場單場【創造 xG】(用逗號隔開)", "1.35, 2.25, 1.98, 1.48, 2.20", key="h_xg")
-    h_co_str = st.text_input("📋 近 5 場單場【真實失球】(用逗號隔開)", "1, 0, 0, 1, 0", key="h_co")
-    h_xga_str = st.text_input("📋 近 5 場單場【允許 xGA】(用逗號隔開)", "1.10, 0.85, 1.20, 1.55, 0.90", key="h_xga")
-    
-    st.markdown("---")
-    h_season_sc = st.number_input("🏟️ 賽季【主場】場均進球", value=3.00, step=0.01, key="h_s_sc")
-    h_season_co = st.number_input("🏟️ 賽季【主場】場均失球", value=0.25, step=0.01, key="h_s_co")
+st.markdown("---")
 
-with tab_away:
-    st.header("🚌 客隊數據設定")
-    a_sc_str = st.text_input("📋 近 5 場單場【真實進球】(用逗號隔開)", "0, 2, 3, 1, 4", key="a_sc")
-    a_xg_str = st.text_input("📋 近 5 場單場【創造 xG】(用逗號隔開)", "0.88, 1.35, 1.72, 1.15, 2.01", key="a_xg")
-    a_co_str = st.text_input("📋 近 5 場單場【真實失球】(用逗號隔開)", "2, 1, 1, 5, 1", key="a_co")
-    a_xga_str = st.text_input("📋 近 5 場單場【允許 xGA】(用逗號隔開)", "1.95, 2.10, 1.45, 2.80, 1.30", key="a_xga")
-    
-    st.markdown("---")
-    a_season_sc = st.number_input("🛣️ 賽季【客場】場均進球", value=0.88, step=0.01, key="a_s_sc")
-    a_season_co = st.number_input("🛣️ 賽季【客場】場均失球", value=1.50, step=0.01, key="a_s_co")
+# 2. 用 Expander 把主客隊數據收納起來，確保每個 key 都是全球唯一
+with st.expander("🏠 點擊展開/收起：輸入【主隊】數據", expanded=True):
+    h_sc_str = st.text_input("📋 近 5 場單場【真實進球】(用英文逗號隔開)", "1, 4, 3, 2, 1", key="k_h_sc")
+    h_xg_str = st.text_input("📋 近 5 場單場【創造 xG】(用英文逗號隔開)", "1.35, 2.25, 1.98, 1.48, 2.20", key="k_h_xg")
+    h_co_str = st.text_input("📋 近 5 場單場【真實失球】(用英文逗號隔開)", "1, 0, 0, 1, 0", key="k_h_co")
+    h_xga_str = st.text_input("📋 近 5 場單場【允許 xGA】(用英文逗號隔開)", "1.10, 0.85, 1.20, 1.55, 0.90", key="k_h_xga")
+    h_season_sc = st.number_input("🏟️ 賽季【主場】場均進球", value=3.00, step=0.01, key="k_h_s_sc")
+    h_season_co = st.number_input("🏟️ 賽季【主場】場均失球", value=0.25, step=0.01, key="k_h_s_co")
 
-with tab_odds:
-    st.header("💰 莊家即時賠率")
-    bookie_h = st.number_input("🏠 獨贏 - 主勝賠率", value=1.29, step=0.01, key="b_h")
-    bookie_d = st.number_input("🤝 獨贏 - 平局賠率", value=5.10, step=0.01, key="b_d")
-    bookie_a = st.number_input("🚌 獨贏 - 客勝賠率", value=6.00, step=0.01, key="b_a")
-    
-    st.markdown("---")
-    bookie_over = st.number_input("🔥 2.5 大球賠率", value=1.60, step=0.01, key="b_o")
-    bookie_under = st.number_input("🔒 2.5 小球賠率", value=2.19, step=0.01, key="b_u")
-    
-    st.markdown("---")
-    run_analysis = st.button("🚀 開始深度融合精算分析", type="primary", use_container_width=True)
+with st.expander("🚌 點擊展開/收起：輸入【客隊】數據", expanded=False):
+    a_sc_str = st.text_input("📋 近 5 場單場【真實進球】(用英文逗號隔開)", "0, 2, 3, 1, 4", key="k_a_sc")
+    a_xg_str = st.text_input("📋 近 5 場單場【創造 xG】(用英文逗號隔開)", "0.88, 1.35, 1.72, 1.15, 2.01", key="k_a_xg")
+    a_co_str = st.text_input("📋 近 5 場單場【真實失球】(用英文逗號隔開)", "2, 1, 1, 5, 1", key="k_a_co")
+    a_xga_str = st.text_input("📋 近 5 場單場【允許 xGA】(用英文逗號隔開)", "1.95, 2.10, 1.45, 2.80, 1.30", key="k_a_xga")
+    a_season_sc = st.number_input("🛣️ 賽季【客場】場均進球", value=0.88, step=0.01, key="k_a_s_sc")
+    a_season_co = st.number_input("🛣️ 賽季【客場】場均失球", value=1.50, step=0.01, key="k_a_s_co")
+
+# 3. 獨立露出的莊家賠率區
+st.markdown("---")
+st.subheader("💰 步驟 2：輸入莊家即時賠率")
+o1, o2, o3 = st.columns(3)
+with o1:
+    bookie_h = st.number_input("🏠 獨贏 - 主勝賠率", value=1.29, step=0.01, key="k_b_h")
+with o2:
+    bookie_d = st.number_input("🤝 獨贏 - 平局賠率", value=5.10, step=0.01, key="k_b_d")
+with o3:
+    bookie_a = st.number_input("🚌 獨贏 - 客勝賠率", value=6.00, step=0.01, key="k_b_a")
+
+o4, o5 = st.columns(2)
+with o4:
+    bookie_over = st.number_input("🔥 2.5 大球賠率", value=1.60, step=0.01, key="k_b_o")
+with o5:
+    bookie_under = st.number_input("🔒 2.5 小球賠率", value=2.19, step=0.01, key="k_b_u")
+
+st.markdown("---")
+run_analysis = st.button("🚀 開始深度融合精算分析", type="primary", use_container_width=True)
 
 # ==========================================
-# 🧠 核心數學計算邏輯 (保持職業級精算不變)
+# 🧠 核心數學計算與精美輸出
 # ==========================================
 if run_analysis:
     try:
@@ -72,7 +75,7 @@ if run_analysis:
         h_xg_r, h_sc_r = np.mean(h_xg), np.mean(h_sc)
         h_xga_r, h_co_r = np.mean(h_xga), np.mean(h_co)
         a_xg_r, a_sc_r = np.mean(a_xg), np.mean(a_sc)
-        a_xga_r, a_co_r = np.mean(a_co), np.mean(a_co)
+        a_xga_r, a_co_r = np.mean(a_xga), np.mean(a_co)
 
         w_actual = 1.0 - weight_xg
         state_h_att = (h_xg_r * weight_xg) + (h_sc_r * w_actual)
@@ -110,37 +113,21 @@ if run_analysis:
         true_o = (1 / bookie_over) / ((1 / bookie_over) + (1 / bookie_under))
 
         # ==========================================
-        # 📊 報告介面美化輸出
+        # 🎯 輸出分析報告
         # ==========================================
         st.markdown("---")
-        st.subheader("📊 系統終極融合精算報告")
+        st.markdown("## 🎯 預測分析結果")
+        
+        col_res1, col_res2 = st.columns(2)
+        with col_res1:
+            st.metric("🏠 主隊最終預期進球 (Lambda)", f"{lambda_home:.2f}")
+        with col_res2:
+            st.metric("🚌 客隊最終預期進球 (Lambda)", f"{lambda_away:.2f}")
+            
+        st.info(f"💰 莊家抽水率: {match_margin*100:.1f}% | 2.5大球模型預估率: {prob_over*100:.1f}%")
 
-        k1, k2 = st.columns(2)
-        with k1:
-            st.metric("🏠 主隊預期進球", f"{lambda_home:.2f} 球")
-        with k2:
-            st.metric("🚌 客隊預期進球", f"{lambda_away:.2f} 球")
-        st.info(f"💰 莊家本場總抽水率 (Margin): {match_margin*100:.1f}%")
-
-        st.markdown("**🕵️ 近 5 場短期運氣診斷**")
-        home_luck = h_xg_r - h_sc_r
-        away_luck = a_xg_r - a_sc_r
-
-        if home_luck >= 0.4:
-            st.error(f"🏠 主隊偏離 ({home_luck:+.2f})：🚨【極度倒楣】隨時迎來觸底大反彈！")
-        elif home_luck <= -0.4:
-            st.warning(f"🏠 主隊偏離 ({home_luck:+.2f})：⚠️【運氣虛高】小心近期泡沫破裂。")
-        else:
-            st.success(f"🏠 主隊偏離 ({home_luck:+.2f})：🔒 正常波動。")
-
-        if away_luck >= 0.4:
-            st.error(f"🚌 客隊偏離 ({away_luck:+.2f})：🚨【極度倒楣】隨時觸底反彈！")
-        elif away_luck <= -0.4:
-            st.warning(f"🚌 客隊偏離 ({away_luck:+.2f})：⚠️【運氣虛高】小心泡沫。")
-        else:
-            st.success(f"🚌 客隊偏離 ({away_luck:+.2f})：🔒 正常波動。")
-
-        st.markdown("**🎯 市場全盤口錯位深度診斷**")
+        st.markdown("---")
+        st.markdown("### 🔍 全盤口市場錯位機會深度分析")
         markets = [
             {"盤口": "🏠 獨贏 - 主勝", "m_p": prob_h, "t_p": true_h, "odds": bookie_h},
             {"盤口": "🤝 獨贏 - 平局", "m_p": prob_d, "t_p": true_d, "odds": bookie_d},
@@ -157,4 +144,4 @@ if run_analysis:
                 st.write(f"{m['盤口']} ｜ 模型: {m['m_p']*100:.1f}% vs 莊家: {m['t_p']*100:.1f}% —— 無明顯優勢")
 
     except Exception as e:
-        st.error(f"數據格式錯誤，請確保數字間用英文逗號隔開！")
+        st.error(f"數據格式錯誤！")
